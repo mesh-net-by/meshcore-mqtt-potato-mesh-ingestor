@@ -1,0 +1,13 @@
+.env
+.git
+.github
+.gitignore
+.dockerignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+mosquitto/
+potato-mesh/
+README.md
+CLAUDE.md
