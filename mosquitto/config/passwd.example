@@ -1,0 +1,1 @@
+# docker run --rm -v $(pwd)/mosquitto/config:/mosquitto/config eclipse-mosquitto:2 mosquitto_passwd -b -c /mosquitto/config/passwd ingestor ВАШ_ПАРОЛЬ

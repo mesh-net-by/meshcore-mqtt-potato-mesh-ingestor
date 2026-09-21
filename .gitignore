@@ -1,0 +1,23 @@
+# Environment — contains secrets
+.env
+
+# Mosquitto runtime data
+mosquitto/data/
+mosquitto/log/
+mosquitto/config/passwd
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+.uv/
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+*.swp
