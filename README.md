@@ -16,14 +16,14 @@ fork, which publishes all received packets to MQTT — no companion node needed.
 MeshCore Repeater (VBart firmware)
         │  MQTT publish  meshcore/{iata}/{device_id}/{status|packets|raw}
         ▼
-   Mosquitto Broker  (included in this repo via Docker Compose)
+   Mosquitto Broker  (included via Docker Compose)
         │  $share/ingestor-group/meshcore/#
         ▼
    Ingestor (this project)
    ├── status   → node info + telemetry
    ├── packets  → decoded with meshcoredecoder
    │   ├── Advert     → nodes + positions
-   │   ├── GroupText  → messages (public channels only)
+   │   ├── GroupText  → messages (public channels, decrypted)
    │   └── Path/Trace → neighbors
    └── raw / unknown → discarded, retain cleared
         │  POST JSON + Bearer token
@@ -39,9 +39,10 @@ ensure each message is processed by exactly one replica.
 ## Requirements
 
 - Docker & Docker Compose v2
-- A MeshCore repeater running VBart firmware with MQTT configured to point at
+- A MeshCore repeater running VBart/MeshCoreTel-firmware with MQTT pointing at
   this broker
-- A running potato-mesh instance with an API token
+- A running [potato-mesh](https://github.com/l5yth/potato-mesh) instance with
+  an API token
 
 ---
 
@@ -52,35 +53,30 @@ ensure each message is processed by exactly one replica.
 ```bash
 git clone <this-repo>
 cd meshcore-observer-potato-mesh-ingestor
-cp .env.example .env
+cp .env.example .env   # then edit .env
 ```
 
-Edit `.env`:
+Key variables in `.env`:
 
-```env
-MQTT_HOST=localhost
-MQTT_PORT=1883
-MQTT_USERNAME=ingestor
-MQTT_PASSWORD=your-strong-password
-
-POTATO_HOST=https://your-potato-mesh.example.com
-POTATO_API_TOKEN=your-api-token
-INGESTOR_NAME=my-mqtt-ingestor
-
-# Optional: comma-separated channel indices to forward (empty = all public)
-ALLOWED_CHANNEL_INDICES=
-```
+| Variable | Description |
+|---|---|
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | Broker credentials (must match passwd file) |
+| `POTATO_HOST` | potato-mesh base URL, e.g. `https://map.example.com` |
+| `POTATO_API_TOKEN` | potato-mesh API bearer token |
+| `INGESTOR_NAME` | Name shown in potato-mesh ingestors list |
+| `CHANNELS_RAW` | Comma-separated channel names to forward, e.g. `test,news`. Empty = all public channels |
+| `REPEATER_NODE_ID` | Optional: repeater node id (e.g. `!3c15e67e`) for heartbeat before first status arrives |
 
 ### 2. Create Mosquitto password file
 
 ```bash
 docker run --rm eclipse-mosquitto:2 \
-  mosquitto_passwd -b /dev/stdout ingestor your-strong-password \
+  mosquitto_passwd -b /dev/stdout meshcore your-strong-password \
   > mosquitto/config/passwd
 ```
 
-> The password in the command must match `MQTT_PASSWORD` in `.env`.
-> The `passwd` file is gitignored — never commit it.
+The username and password must match `MQTT_USERNAME` / `MQTT_PASSWORD` in `.env`.
+The `passwd` file is gitignored — never commit it.
 
 ### 3. Start
 
@@ -97,60 +93,49 @@ docker compose logs -f mosquitto
 
 ---
 
+## Channel Configuration
+
+GroupText messages are encrypted per-channel. Keys are **derived automatically**
+from channel names — no manual key entry.
+
+```env
+# Forward only these channels (keys derived from names automatically)
+CHANNELS_RAW=test,news
+
+# Forward all public channels, decrypt where possible (default)
+CHANNELS_RAW=
+```
+
+The `Public` channel key is always registered at startup. Only broadcast
+messages (`to_id = "^all"`) are forwarded; DMs are always dropped.
+
+---
+
 ## Scaling
 
-Run multiple ingestor replicas to process the message queue faster:
+Run multiple replicas to handle higher message volume:
 
 ```bash
 docker compose up -d --scale ingestor=3
 ```
 
-All replicas join the same shared subscription group — each MQTT message is
-delivered to exactly one replica, no duplicates.
-
-Or set it permanently in `.env`:
+Or set permanently in `.env`:
 
 ```env
 INGESTOR_REPLICAS=3
 ```
 
----
-
-## Message Filtering
-
-Only **public channel messages** (`to_id = "^all"`) are forwarded to
-potato-mesh. The following are always dropped:
-
-- Direct messages (DMs) — `to_id` is a specific node ID
-- Encrypted / closed channel packets
-
-To restrict forwarding to specific channels, set their indices in `.env`:
-
-```env
-# Forward only channels 0 and 1
-ALLOWED_CHANNEL_INDICES=0,1
-
-# Forward all public channels (default)
-ALLOWED_CHANNEL_INDICES=
-```
-
-Channel indices correspond to the channel slots configured on the MeshCore
-device. Channel names (if announced via Advert packets) are resolved at the
-potato-mesh side.
+Each MQTT message is delivered to exactly one replica — no duplicate processing.
 
 ---
 
-## MQTT Data Cleanup
+## MQTT Retain Cleanup
 
-The ingestor subscribes to the top-level `meshcore/#` wildcard and processes
-everything. After each message is handled:
-
-- **Retained messages** — ingestor publishes an empty payload to the same topic,
-  which instructs Mosquitto to remove the retained copy.
-- **Non-retained messages** — consumed and discarded automatically.
-
-Mosquitto is also configured with a 24-hour retained message expiry as a safety
-net (`retained_expire_interval 86400`).
+- After processing each retained message, the ingestor publishes an empty
+  payload to the same topic → Mosquitto removes the retained copy immediately.
+- A background task runs every hour and clears any retained messages whose
+  `timestamp` is older than **6 hours** (safety net for messages missed during
+  downtime).
 
 ---
 
@@ -160,29 +145,16 @@ net (`retained_expire_interval 86400`).
 ├── docker-compose.yml
 ├── Dockerfile
 ├── pyproject.toml
-├── .env.example
 ├── mosquitto/
 │   └── config/
 │       ├── mosquitto.conf
 │       └── passwd.example
 └── src/ingestor/
     ├── config.py          — settings (pydantic-settings, reads .env)
-    ├── main.py            — async event loop, MQTT reconnect, heartbeat
-    ├── processor.py       — message routing + retain cleanup
+    ├── main.py            — event loop, MQTT reconnect, heartbeat, retain cleanup
+    ├── processor.py       — message routing, GroupText decryption, retain clear
     ├── handlers.py        — data mapping to potato-mesh API calls
     └── potato_client.py   — async HTTP client for potato-mesh
-```
-
----
-
-## Development
-
-```bash
-# Install dependencies with uv
-uv pip install -e .
-
-# Run locally (requires Mosquitto running and .env set)
-python -m ingestor.main
 ```
 
 ---
@@ -199,5 +171,11 @@ MQTT Username: <MQTT_USERNAME from .env>
 MQTT Password: <MQTT_PASSWORD from .env>
 ```
 
-The firmware will publish to `meshcore/{iata}/{device_id}/{subtopic}` — no
-additional configuration needed on the ingestor side.
+---
+
+## Development
+
+```bash
+uv pip install -e .
+python -m ingestor.main
+```
