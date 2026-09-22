@@ -161,9 +161,6 @@ Auth: `Authorization: Bearer {API_TOKEN}`
 **`POST /api/telemetry`** — battery / environment:
 - `from_id`, `rx_time`, `decoded.telemetry.deviceMetrics`
 
-**`POST /api/neighbors`** — mesh topology:
-- `node_id`, `rx_time`, `neighbors[]`: `{ neighbor_id, snr, rx_time }`
-
 **`POST /api/ingestors`** — heartbeat (sent every 60 s).
 
 ### Sender node_id in GroupText
@@ -251,7 +248,7 @@ MeshCore Repeater Firmware (VBart fork)
   │        Advert    → /api/nodes + /api/positions  │
   │        GroupText → _decrypt_group_text()        │
   │                    → /api/messages              │
-  │        Path/Trace→ /api/neighbors               │
+  │        Path/Trace → DROP (unhandled)             │
   │        TextMessage → DROP (DM)                  │
   │                                                 │
   │  subtopic == "raw" → DROP                       │

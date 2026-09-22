@@ -24,7 +24,7 @@ MeshCore Repeater (VBart firmware)
    ├── packets  → decoded with meshcoredecoder
    │   ├── Advert     → nodes + positions
    │   ├── GroupText  → messages (public channels, decrypted)
-   │   └── Path/Trace → neighbors
+   │   └── Path/Trace → discarded
    └── raw / unknown → discarded, retain cleared
         │  POST JSON + Bearer token
         ▼
