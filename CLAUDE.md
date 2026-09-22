@@ -21,9 +21,6 @@ companion node.
 | potato-mesh | https://github.com/l5yth/potato-mesh | Map UI + API we POST to |
 | VBart firmware | https://github.com/VBart/MeshCoreTel-firmware | Firmware publishing to MQTT |
 | meshcoredecoder | https://pypi.org/project/meshcoredecoder/ | Packet structure parser (NOT its crypto — see below) |
-| meshcore-packet-capture | https://github.com/agessaman/meshcore-packet-capture | Reference implementation |
-| mc-webui | https://github.com/MarekWo/mc-webui | Reference implementation |
-| meshcoretomqtt | https://github.com/Cisien/meshcoretomqtt | Reference implementation |
 
 ---
 
