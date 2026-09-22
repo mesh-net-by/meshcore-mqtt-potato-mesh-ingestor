@@ -141,6 +141,7 @@ async def process_message(msg: Message, potato: PotatoClient, mqtt: MqttClient) 
             await handle_status(payload, potato)
 
         elif subtopic == "packets":
+            potato.count_packet()
             await _process_packet(payload, potato)
 
         elif subtopic == "raw":

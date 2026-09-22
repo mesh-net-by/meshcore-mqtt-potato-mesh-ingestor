@@ -24,6 +24,7 @@ class PotatoClient:
         )
         self._lora_freq: float | None = None
         self._modem_preset: str | None = None
+        self._packets_since_heartbeat: int = 0
 
     async def post(self, endpoint: str, payload: dict | list) -> None:
         try:
@@ -38,6 +39,9 @@ class PotatoClient:
 
     async def send_node(self, node_id: str, data: dict) -> None:
         await self.post("/api/nodes", {node_id: {**data, "protocol": "meshcore", "ingestor": settings.ingestor_name}})
+
+    def count_packet(self) -> None:
+        self._packets_since_heartbeat += 1
 
     async def send_message(self, data: dict) -> None:
         await self.post("/api/messages", [{**data, "protocol": "meshcore", "ingestor": settings.ingestor_name}])
@@ -71,12 +75,17 @@ class PotatoClient:
         if not node_id:
             log.debug("heartbeat_skipped_no_node_id")
             return
+        packets = self._packets_since_heartbeat
+        self._packets_since_heartbeat = 0
         await self.post("/api/ingestors", {
             "node_id": node_id,
             "version": "1.0.0",
             "start_time": _start_time,
             "last_seen_time": int(time.time()),
             "protocol": "meshcore",
+            "packets": packets,
+            "lora_freq": self._lora_freq,
+            "modem_preset": self._modem_preset,
         })
 
     async def aclose(self) -> None:
