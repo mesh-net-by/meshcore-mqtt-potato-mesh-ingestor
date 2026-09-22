@@ -222,27 +222,3 @@ async def handle_group_text(
     })
 
 
-async def handle_path(path_payload, rx_time: int, snr: float, rssi: int, client: PotatoClient) -> None:
-    """PathPayload → neighbor info."""
-    if path_payload is None:
-        return
-
-    data = path_payload.to_dict() if hasattr(path_payload, "to_dict") else {}
-    node_id = data.get("senderId", "")
-    path_nodes = data.get("path", [])
-
-    if not node_id or len(path_nodes) < 2:
-        return
-
-    neighbors = [
-        {"neighbor_id": f"!{n}" if not str(n).startswith("!") else str(n), "snr": snr, "rx_time": rx_time}
-        for n in path_nodes[1:]
-    ]
-
-    log.debug("path", node_id=node_id, neighbors=len(neighbors))
-
-    await client.send_neighbors({
-        "node_id": f"!{node_id}" if not node_id.startswith("!") else node_id,
-        "rx_time": rx_time,
-        "neighbors": neighbors,
-    })

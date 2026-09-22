@@ -52,9 +52,6 @@ class PotatoClient:
     async def send_telemetry(self, data: dict) -> None:
         await self.post("/api/telemetry", {**data, "protocol": "meshcore", "ingestor": settings.ingestor_name})
 
-    async def send_neighbors(self, data: dict) -> None:
-        await self.post("/api/neighbors", {**data, "ingestor": settings.ingestor_name})
-
     async def set_repeater_node_id(self, node_id: str) -> None:
         self._repeater_node_id = node_id
 

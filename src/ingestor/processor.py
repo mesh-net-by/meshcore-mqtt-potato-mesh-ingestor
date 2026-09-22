@@ -19,7 +19,7 @@ from meshcoredecoder import MeshCoreDecoder
 from meshcoredecoder.types import PayloadType
 
 from .config import settings
-from .handlers import handle_advert, handle_group_text, handle_path, handle_status
+from .handlers import handle_advert, handle_group_text, handle_status
 from .potato_client import PotatoClient
 
 log = structlog.get_logger()
@@ -197,9 +197,6 @@ async def _process_packet(payload: dict, potato: PotatoClient) -> None:
     elif ptype == PayloadType.TextMessage:
         # Private/direct message — never forward
         log.debug("dropping_private_message")
-
-    elif ptype in (PayloadType.Path, PayloadType.Trace):
-        await handle_path(inner, rx_time, snr, rssi, potato)
 
     else:
         log.debug("unhandled_packet_type", ptype=ptype.name if ptype else "unknown")
