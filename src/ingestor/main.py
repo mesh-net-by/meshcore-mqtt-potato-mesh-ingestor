@@ -121,8 +121,11 @@ async def run() -> None:
 
     await _prefetch_lora_info(potato)
 
-    asyncio.create_task(heartbeat_loop(potato))
-    asyncio.create_task(_retain_cleanup_loop())
+    _bg_tasks: set[asyncio.Task] = set()
+    for coro in (heartbeat_loop(potato), _retain_cleanup_loop()):
+        t = asyncio.create_task(coro)
+        _bg_tasks.add(t)
+        t.add_done_callback(_bg_tasks.discard)
 
     while True:
         try:
@@ -138,7 +141,9 @@ async def run() -> None:
                 log.info("subscribed", topic=settings.mqtt_shared_topic)
 
                 async for msg in mqtt.messages:
-                    asyncio.create_task(process_message(msg, potato, mqtt))
+                    t = asyncio.create_task(process_message(msg, potato, mqtt))
+                    _bg_tasks.add(t)
+                    t.add_done_callback(_bg_tasks.discard)
 
         except MqttError as e:
             log.warning("mqtt_disconnected", error=str(e), reconnect_in=RECONNECT_DELAY)

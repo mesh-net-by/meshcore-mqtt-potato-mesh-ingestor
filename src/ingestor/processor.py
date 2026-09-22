@@ -72,8 +72,8 @@ def _decrypt_group_text(channel_hash_hex: str, cipher_mac_hex: str, ciphertext_h
         if not hmac_mod.compare_digest(calc_mac[:2], cipher_mac[:2]):
             return None
 
-        # Decrypt AES-128-ECB with first 16 bytes
-        cipher = AES.new(secret[:16], AES.MODE_ECB)
+        # MeshCore firmware uses AES-128-ECB — protocol-mandated, cannot be changed.
+        cipher = AES.new(secret[:16], AES.MODE_ECB)  # NOSONAR
         plaintext = cipher.decrypt(ciphertext)
 
         if len(plaintext) < 5:
